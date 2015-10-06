@@ -1,56 +1,78 @@
 ﻿var numbers = require('./numbers');
 
-function Converter(domain, system, authority, symbol, name, targetConverter, toTarget, fromTarget) {
+function Converter(domain, system, authority, name, symbol, isRational, multiplier, divisor, offset, isInverse, nextConverter) {
     this.domain = domain;
     this.system = system;
     this.authority = authority;
-    this.symbol = symbol;
     this.name = name;
-    this.targetConverter = targetConverter;
-    this.toTarget = toTarget;
-    this.fromTarget = fromTarget;
+    this.symbol = symbol;
+    this.isRational;
+    this.multiplier = multiplier;
+    this.divisor = divisor;
+    this.offset = offset;
+    this.isInverse = isInverse;
+    this.nextConverter = nextConverter;
 }
 
 Converter.prototype.toString = function () {
-    return "domain=" + this.domain + ",system=" + this.system + ",authority=" + this.authority + ",symbol=" + this.symbol + ",name=" + this.name;
+    return "domain=" + this.domain + ",system=" + this.system + ",authority=" + this.authority + ",name=" + this.name + ",symbol=" + this.symbol;
 };
+
+function convertTo(value, scalar, divisor, offset) {
+    return value * scalar / divisor + offset;
+}
+
+function convertFrom(value, scalar, divisor, offset) {
+    return (value - offset) * divisor / scalar;
+}
 
 Converter.prototype.convert = function (value, to) {
     
-    if (!(value instanceof numbers.Real)) {
-        value = new numbers.Real(value);
+    var mutiply, divide;
+
+    if (this.isRational) {
+        if (!(value instanceof numbers.Real)) {
+            value = new numbers.Real(value);
+        }
+        multiply = function (value, scalar) { return (value instanceof numbers.Real ? value : new Numbers.Real(value)).mul(scalar); }
+        divide = function (value, divisor) { return (x instanceof numbers.Real ? value : new Numbers.Real(value)).div(divisor); }
+    } else {
+        multiply = function (value, scalar) { return (x instanceof numbers.Real ? value.mul(scalar).toValue() : value * scalar); }
+        divide = function (value, divisor) { return (x instanceof numbers.Real ? value.div(divisor).toValue() : value / divisor); }
     }
-    
+
     var toConverters = [];
     var toConverter = to;
-    while (toConverter.fromTarget) {
+    while (toConverter.nextConverter) {
         toConverters.push(toConverter);
-        toConverter = toConverter.targetConverter;
+        toConverter = toConverter.nextConverter;
     }
     
     var from = this;
-    while (from.toTarget) {
+    while (from.nextConverter) {
         
         if (from == to) {
             return value;
         }
         
-        value = from.toTarget(value);
+        value = divide(multiple(value, from.scalar), from.divisor);
         
         var index = toConverters.indexOf(from);
         
         if (index == -1) {
-            from = from.targetConverter;
+            from = from.nextConverter;
         } else {
             for (; index >= 0; --index) {
-                value = toConverters[index].fromTarget(value);
+                var converter = toConverters[index];
+                value = divide(multiple(value, converter.scalar), converter.divisor);
             }
             return value;
         }
     }
     
     while (toConverters.length > 0) {
-        value = toConverters.pop().fromTarget(value);
+        var converter = toConverters.pop();
+        value = divide(multiple(value, converter.scalar), converter.divisor);
     }
     
     return value;
