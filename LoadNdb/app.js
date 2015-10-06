@@ -1,120 +1,12 @@
-﻿var fs = require('fs');
-var mongodb = require('mongodb');
-
-function TableReference(tableName, columnNames) {
-    this.tableName = tableName;
-    this.ColumnNames = columnNames;
-}
-
-function ForeignKey(columnNames, tableReference) {
-    this.columnNames = columnNames;
-    this.reference = tableReference;
-}
-
-function PrimaryKey(columnNames) {
-    this.columnNames = columnNames;
-}
-
-function Column(name, type, size, decimals, isNullable, description) {
-    this.name = name;
-    this.type = type;
-    this.size = size;
-    this.decimals = decimals;
-    this.isNullable = isNullable;
-    this.description = description;
-}
-
-function Table(title, name, primaryKey, foreignKeys, columns) {
-    this.title = title;
-    this.name = name;
-    this.primaryKey = primaryKey;
-    this.foreignKeys = foreignKeys;
-    this.columns = columns;
-}
-
-function Database(name, version, tables) {
-    this.name = name;
-    this.version = version;
-    this.tables = tables;
-    
-    this.convert = function (column, value) {
-        if (column.type === Number) {
-            if (value === '') {
-                return null;
-            } else if (column.decimals) {
-                return parseFloat(value);
-            } else {
-                return parseInt(value);
-            }
-        } else {
-            value = value.slice(1, -1);
-            
-            if (column.type === Boolean) {
-                switch (value) {
-                    case 'Y':
-                        return true;
-                    case 'N':
-                        return false;
-                }
-            } else if (column.type === String) {
-                if (value !== '') {
-                    return value;
-                }
-            }
-        }
-    };
-    
-    this.makeKey = function (table, row) {
-        if (table.primaryKey) {
-            var key = [];
-            for (var index = 0; index < table.primaryKey.columnNames.length; ++index) {
-                var columnName = table.primaryKey.columnNames[index];
-                var value = row[columnName];
-                key.push(value);
-            }
-            return key;
-        }
-    };
-    
-    this.loadTable = function (table, lines, addRow) {
-        
-        for (var lineIndex = 0; lineIndex < lines.length; ++lineIndex) {
-            
-            var line = lines[lineIndex];
-            if (line === "") {
-                continue;
-            }
-            
-            var row = {};
-            var items = lines[lineIndex].split("^");
-            
-            for (var itemNumber = 0; itemNumber < items.length; ++itemNumber) {
-                var column = table.columns[itemNumber];
-                row[column.name] = this.convert(column, items[itemNumber].trim());
-            }
-            
-            var key = this.makeKey(table, row);
-            addRow(key, row);
-        }
-    };
-    
-    this.load = function (folder, addItem) {
-        
-        for (var tableIndex = 0; tableIndex < this.tables.length; ++tableIndex) {
-            
-            var table = this.tables[tableIndex];
-            var path = folder + '/' + table.name + '.txt';
-            var data = fs.readFileSync(path, 'utf8');
-            var lines = data.split('\n');
-            
-            var addRow = function (key, row) {
-                addItem(table, key, row);
-            };
-            
-            this.loadTable(table, lines, addRow);
-        }
-    };
-}
+﻿var fs = require('fs'),
+    mongodb = require('mongodb'),
+    ndb = require('./ndb.js'),
+    Database = ndb.Database,
+    Table = ndb.Table,
+    PrimaryKey = ndb.PrimaryKey,
+    ForeignKey = ndb.ForeignKey,
+    TableReference = ndb.TableReference,
+    Column = ndb.Column;
 
 var database = new Database(
     'NDB',
@@ -175,8 +67,7 @@ mongodb.MongoClient.connect("mongodb://localhost:27017/exampleDb", function (err
     } else {
         console.log("We are connected");
         
-        for (var tableIndex = 0; tableIndex < database.tables.length; ++tableIndex) {
-            var table = database.tables[tableIndex];
+        var createIndex = function (table) {
             db.collection(table.name, function (err, collection) {
                 var keys = {};
                 for (var keyIndex = 0; keyIndex < table.primaryKey.columnNames.length; ++keyIndex) {
@@ -191,8 +82,8 @@ mongodb.MongoClient.connect("mongodb://localhost:27017/exampleDb", function (err
                     }
                 });
             });
-        }
-        
+        };
+
         var addData = function (table, key, row) {
             db.collection(table.name, function (err, collection) {
                 if (!err) {
@@ -207,40 +98,39 @@ mongodb.MongoClient.connect("mongodb://localhost:27017/exampleDb", function (err
             })
         };
         
-        database.load('/Users/robertblackbourn/Data/sr28asc', addData);
+        database.load('D:\\Data\\SR28', addData, createIndex);
         
-        db.collection('MEASURES', function (err, collection) {
+        //db.collection('MEASURES', function (err, collection) {
             
-            var measures = [
-                { organisation: 'FDA', name: 'tsp', domain: 'volume', value: 5, unit: "ml", description: 'teaspoon' },
-                { organisation: 'FDA', name: 'tbsp', domain: 'volume', value: 15, unit: 'ml', description: 'tablespoon' },
-                { organisation: 'FDA', name: 'fl oz', domain: 'volume', value: 30, unit: 'ml', description: 'fluid ounce' },
-                { organisation: 'FDA', name: 'cup', domain: volume, value: 240, unit: "ml", description: 'cup' },
-                { organisation: 'USA', name: 'tsp', domain: 'volume', value: 4.93, unit: "ml", description: "teaspoon" },
-                { organisation: 'USA', name: 'tbsp', domain: 'volume', value: 14.79, unit: 'ml', description: 'tablespoon' },
-                { organisation: 'USA', name: 'fl oz', domain: 'volume', value: 29.57, unit: 'ml', description: 'fluid ounce' },
-                { organisation: 'USA', name: 'cup', domain: 'volume', value: 236.59, unit: 'ml', description: 'cup' },
-                { organisation: 'USA', name: 'pint', domain: 'volume', value: 473.18, unit: 'ml', description: 'pint' }
-            ];
+        //    var measures = [
+        //        { organisation: 'FDA', name: 'tsp', domain: 'volume', value: 5, unit: "ml", description: 'teaspoon' },
+        //        { organisation: 'FDA', name: 'tbsp', domain: 'volume', value: 15, unit: 'ml', description: 'tablespoon' },
+        //        { organisation: 'FDA', name: 'fl oz', domain: 'volume', value: 30, unit: 'ml', description: 'fluid ounce' },
+        //        { organisation: 'FDA', name: 'cup', domain: volume, value: 240, unit: "ml", description: 'cup' },
+        //        { organisation: 'USA', name: 'tsp', domain: 'volume', value: 4.93, unit: "ml", description: "teaspoon" },
+        //        { organisation: 'USA', name: 'tbsp', domain: 'volume', value: 14.79, unit: 'ml', description: 'tablespoon' },
+        //        { organisation: 'USA', name: 'fl oz', domain: 'volume', value: 29.57, unit: 'ml', description: 'fluid ounce' },
+        //        { organisation: 'USA', name: 'cup', domain: 'volume', value: 236.59, unit: 'ml', description: 'cup' },
+        //        { organisation: 'USA', name: 'pint', domain: 'volume', value: 473.18, unit: 'ml', description: 'pint' }
+        //    ];
             
-            collection.insert(measures, function (err, result) {
-                if (err) {
-                    console.log("Failed to insert row with error " + err);
-                } else {
-                    console.log("Inserted row for table " + table.name + " with result " + result);
-                }
-            });
+        //    collection.insert(measures, function (err, result) {
+        //        if (err) {
+        //            console.log("Failed to insert row with error " + err);
+        //        } else {
+        //            console.log("Inserted row for table " + table.name + " with result " + result);
+        //        }
+        //    });
             
-            collection.ensureIndex({ organisation: 1, name: 1 }, { unique: true, name: 'MEASURES_PK' }, function (err, collection) {
-                if (err) {
-                    console.log("Failed to create index " + err);
-                } else {
-                    console.log("Created index " + result);
-                }
-            })
-        })
+        //    collection.ensureIndex({ organisation: 1, name: 1 }, { unique: true, name: 'MEASURES_PK' }, function (err, collection) {
+        //        if (err) {
+        //            console.log("Failed to create index " + err);
+        //        } else {
+        //            console.log("Created index " + result);
+        //        }
+        //    })
+        //})
     }
-}
-);
+});
 
-console.log("Done");
+//console.log("Done");

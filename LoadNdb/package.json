@@ -1,10 +1,13 @@
 {
-  "name": "LoadNdb",
-  "version": "0.0.0",
-  "description": "LoadNdb",
-  "main": "app.js",
-  "author": {
-    "name": "robertblackbourn",
-    "email": ""
-  }
+    "name": "LoadNdb",
+    "version": "0.0.0",
+    "description": "LoadNdb",
+    "main": "app.js",
+    "dependencies": {
+        "mongodb": "^2.0.45"
+    },
+    "author": {
+        "name": "Rob Blackbourn",
+        "email": "rob.blackbourn@googlemail.com"
+    }
 }
