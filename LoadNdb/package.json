@@ -1,0 +1,10 @@
+{
+  "name": "LoadNdb",
+  "version": "0.0.0",
+  "description": "LoadNdb",
+  "main": "app.js",
+  "author": {
+    "name": "robertblackbourn",
+    "email": ""
+  }
+}

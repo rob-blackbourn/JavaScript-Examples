@@ -1,0 +1,10 @@
+{
+  "name": "Converters",
+  "version": "0.0.0",
+  "description": "Converters",
+  "main": "app.js",
+  "author": {
+    "name": "robertblackbourn",
+    "email": ""
+  }
+}
